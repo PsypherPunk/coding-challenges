@@ -11,58 +11,33 @@ impl From<IoError> for CcwcError {
     }
 }
 
-/// # Errors
-///
-/// Will return `Err` if there is a failure reading from `input`.
-pub fn number_of_characters(input: &mut impl Read) -> Result<usize, CcwcError> {
-    let total_chars = input.bytes().try_fold(0, |acc, byte| {
-        byte.map(|byte| {
-            if byte.is_ascii() || byte & 0xC0 != 0x80 {
-                acc + 1
-            } else {
-                acc
+#[derive(Default)]
+pub struct CcwcCount {
+    pub characters: usize,
+    pub words: usize,
+    pub lines: usize,
+    pub bytes: usize,
+}
+
+impl From<&mut dyn Read> for CcwcCount {
+    fn from(input: &mut dyn Read) -> Self {
+        let mut reader = BufReader::new(input);
+        let mut line = Vec::new();
+        let mut count = Self::default();
+
+        while let Ok(size) = reader.read_until(b'\n', &mut line) {
+            if size == 0 {
+                break;
             }
-        })
-    })?;
 
-    Ok(total_chars)
-}
+            count.lines += 1;
+            count.characters += String::from_utf8_lossy(&line).chars().count();
+            count.words += String::from_utf8_lossy(&line).split_whitespace().count();
+            count.bytes += line.len();
 
-/// # Errors
-///
-/// Will return `Err` if there is a failure reading from `input`.
-pub fn number_of_words(input: &mut impl Read) -> Result<usize, CcwcError> {
-    let reader = BufReader::new(input);
-
-    let word_count = reader.lines().try_fold(0, |acc, line| {
-        Ok::<usize, IoError>(acc + line?.split_whitespace().count())
-    })?;
-
-    Ok(word_count)
-}
-
-/// # Errors
-///
-/// Will return `Err` if there is a failure reading from `input`.
-pub fn number_of_lines(input: &mut impl Read) -> Result<usize, CcwcError> {
-    let reader = BufReader::new(input);
-
-    Ok(reader.lines().count())
-}
-
-/// # Errors
-///
-/// Will return `Err` if there is a failure reading from `input`.
-pub fn number_of_bytes(input: &mut impl Read) -> Result<usize, CcwcError> {
-    let mut buffer = [0; 4096];
-    let mut total_bytes_read = 0;
-
-    while let Ok(bytes_read) = input.read(&mut buffer) {
-        if bytes_read == 0 {
-            break;
+            line.truncate(0);
         }
-        total_bytes_read += bytes_read;
-    }
 
-    Ok(total_bytes_read)
+        count
+    }
 }

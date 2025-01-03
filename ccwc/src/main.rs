@@ -3,7 +3,7 @@ use std::io::{self, Read};
 
 use argh::FromArgs;
 
-use ::ccwc::{number_of_bytes, number_of_characters, number_of_lines, number_of_words, CcwcError};
+use ::ccwc::{CcwcCount, CcwcError};
 
 #[derive(FromArgs)]
 #[allow(clippy::struct_excessive_bools)]
@@ -47,10 +47,10 @@ enum Input {
 }
 
 impl Read for Input {
-    fn read(&mut self, buffer: &mut [u8]) -> io::Result<usize> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         match self {
-            Self::File(file) => file.read(buffer),
-            Self::Stdin(stdin) => stdin.read(buffer),
+            Self::File(file) => file.read(buf),
+            Self::Stdin(stdin) => stdin.read(buf),
         }
     }
 }
@@ -63,48 +63,25 @@ fn main() -> Result<(), CcwcError> {
         None => Input::Stdin(io::stdin()),
     };
 
+    let counts = CcwcCount::from(&mut input as &mut dyn Read);
+
     if ccwc.count_bytes {
-        match number_of_bytes(&mut input) {
-            Ok(b) => {
-                println!("{b} {}", ccwc.path.unwrap_or_default());
-                Ok(())
-            }
-            Err(e) => Err(e),
-        }
+        println!("{} {}", counts.bytes, ccwc.path.unwrap_or_default());
     } else if ccwc.count_lines {
-        match number_of_lines(&mut input) {
-            Ok(l) => {
-                println!("{l} {}", ccwc.path.unwrap_or_default());
-                Ok(())
-            }
-            Err(e) => Err(e),
-        }
+        println!("{} {}", counts.lines, ccwc.path.unwrap_or_default());
     } else if ccwc.count_words {
-        match number_of_words(&mut input) {
-            Ok(w) => {
-                println!("{w} {}", ccwc.path.unwrap_or_default());
-                Ok(())
-            }
-            Err(e) => Err(e),
-        }
+        println!("{} {}", counts.words, ccwc.path.unwrap_or_default());
     } else if ccwc.count_chars {
-        match number_of_characters(&mut input) {
-            Ok(c) => {
-                println!("{c} {}", ccwc.path.unwrap_or_default());
-                Ok(())
-            }
-            Err(e) => Err(e),
-        }
+        println!("{} {}", counts.characters, ccwc.path.unwrap_or_default());
     } else {
-        let bytes = number_of_bytes(&mut input);
-        let lines = number_of_lines(&mut input);
-        let words = number_of_words(&mut input);
-        match (bytes, lines, words) {
-            (Ok(b), Ok(l), Ok(w)) => {
-                println!("{l} {w} {b} {}", ccwc.path.unwrap_or_default());
-            }
-            _ => panic!(r#"¯\_(ツ)_/¯"#),
-        }
-        Ok(())
+        println!(
+            "{} {} {} {}",
+            counts.lines,
+            counts.words,
+            counts.bytes,
+            ccwc.path.unwrap_or_default()
+        );
     }
+
+    Ok(())
 }
