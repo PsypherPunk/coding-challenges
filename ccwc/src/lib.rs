@@ -1,13 +1,13 @@
 use std::io::{BufRead, BufReader, Error as IoError, Read};
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug)]
 pub enum CcwcError {
-    IoError(String),
+    IoError(IoError),
 }
 
 impl From<IoError> for CcwcError {
     fn from(error: IoError) -> Self {
-        Self::IoError(error.to_string())
+        Self::IoError(error)
     }
 }
 
@@ -19,25 +19,22 @@ pub struct CcwcCount {
     pub bytes: usize,
 }
 
-impl From<&mut dyn Read> for CcwcCount {
-    fn from(input: &mut dyn Read) -> Self {
-        let mut reader = BufReader::new(input);
-        let mut line = Vec::new();
-        let mut count = Self::default();
+impl<R: Read> From<R> for CcwcCount {
+    fn from(input: R) -> Self {
+        let reader = BufReader::new(input);
 
-        while let Ok(size) = reader.read_until(b'\n', &mut line) {
-            if size == 0 {
-                break;
-            }
-
-            count.lines += 1;
-            count.characters += String::from_utf8_lossy(&line).chars().count();
-            count.words += String::from_utf8_lossy(&line).split_whitespace().count();
-            count.bytes += line.len();
-
-            line.truncate(0);
-        }
-
-        count
+        reader
+            .lines()
+            .try_fold(Self::default(), |mut acc, line| match line {
+                Ok(line) => {
+                    acc.lines += 1;
+                    acc.characters += line.chars().count();
+                    acc.words += line.split_whitespace().count();
+                    acc.bytes += line.as_bytes().len();
+                    Ok(acc)
+                }
+                Err(_) => Err(acc),
+            })
+            .unwrap_or_default()
     }
 }

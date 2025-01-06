@@ -58,12 +58,12 @@ impl Read for Input {
 fn main() -> Result<(), CcwcError> {
     let ccwc: Ccwc = argh::from_env();
 
-    let mut input = match &ccwc.path {
+    let input = match &ccwc.path {
         Some(path) => Input::File(File::open(path)?),
         None => Input::Stdin(io::stdin()),
     };
 
-    let counts = CcwcCount::from(&mut input as &mut dyn Read);
+    let counts = CcwcCount::from(input);
 
     if ccwc.count_bytes {
         println!("{} {}", counts.bytes, ccwc.path.unwrap_or_default());
